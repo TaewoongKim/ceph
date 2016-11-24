@@ -151,6 +151,7 @@ enum {
 
 static const char *config_keys[] = {
   "crush_location",
+  "objecter_mclock_service_tracker",
   NULL
 };
 
@@ -221,6 +222,9 @@ void Objecter::handle_conf_change(const struct md_config_t *conf,
 {
   if (changed.count("crush_location")) {
     update_crush_location();
+  }
+  if (changed.count("objecter_mclock_service_tracker")) {
+    mclock_service_tracker = conf->objecter_mclock_service_tracker;
   }
 }
 
@@ -3170,6 +3174,11 @@ MOSDOp *Objecter::_prepare_osd_op(Op *op)
     m->set_reqid(op->reqid);
   }
 
+  if (mclock_service_tracker) {
+    dmc::ReqParams rp = qos_trk->get_req_params(op->target.osd);
+    m->set_qos_params(rp);
+  }
+
   logger->inc(l_osdc_op_send);
   logger->inc(l_osdc_op_send_bytes, m->get_data().length());
 
@@ -4943,6 +4952,7 @@ Objecter::OSDSession::~OSDSession()
 
 Objecter::~Objecter()
 {
+  delete qos_trk;
   delete osdmap;
 
   assert(homeless_session->get_nref() == 1);
