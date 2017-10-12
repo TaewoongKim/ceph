@@ -54,14 +54,17 @@ namespace ceph {
       crimson::dmclock::ClientInfo recov;
       crimson::dmclock::ClientInfo scrub;
 
-      mclock_op_tags_t(CephContext *cct);
+      mclock_op_tags_t(CephContext *cct, int n_members);
     };
 
     static std::unique_ptr<mclock_op_tags_t> mclock_op_tags;
+    static CephContext *cct;
+    static unsigned int num_instances;
 
   public:
 
-    mClockClientQueue(CephContext *cct);
+    mClockClientQueue(CephContext *_cct);
+    ~mClockClientQueue();
 
     static crimson::dmclock::ClientInfo
     op_class_client_info_f(const InnerClient& client);

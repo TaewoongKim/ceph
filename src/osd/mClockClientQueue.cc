@@ -30,22 +30,22 @@ namespace dmc = crimson::dmclock;
 
 namespace ceph {
 
-  mClockClientQueue::mclock_op_tags_t::mclock_op_tags_t(CephContext *cct) :
-    client_op(cct->_conf->osd_op_queue_mclock_client_op_res,
-	      cct->_conf->osd_op_queue_mclock_client_op_wgt,
-	      cct->_conf->osd_op_queue_mclock_client_op_lim),
-    osd_subop(cct->_conf->osd_op_queue_mclock_osd_subop_res,
-	      cct->_conf->osd_op_queue_mclock_osd_subop_wgt,
-	      cct->_conf->osd_op_queue_mclock_osd_subop_lim),
-    snaptrim(cct->_conf->osd_op_queue_mclock_snap_res,
-	     cct->_conf->osd_op_queue_mclock_snap_wgt,
-	     cct->_conf->osd_op_queue_mclock_snap_lim),
-    recov(cct->_conf->osd_op_queue_mclock_recov_res,
-	  cct->_conf->osd_op_queue_mclock_recov_wgt,
-	  cct->_conf->osd_op_queue_mclock_recov_lim),
-    scrub(cct->_conf->osd_op_queue_mclock_scrub_res,
-	  cct->_conf->osd_op_queue_mclock_scrub_wgt,
-	  cct->_conf->osd_op_queue_mclock_scrub_lim)
+  mClockClientQueue::mclock_op_tags_t::mclock_op_tags_t(CephContext *cct, int n_members) :
+    client_op(cct->_conf->osd_op_queue_mclock_client_op_res / n_members,
+	      cct->_conf->osd_op_queue_mclock_client_op_wgt / n_members,
+	      cct->_conf->osd_op_queue_mclock_client_op_lim / n_members),
+    osd_subop(cct->_conf->osd_op_queue_mclock_osd_subop_res / n_members,
+	      cct->_conf->osd_op_queue_mclock_osd_subop_wgt / n_members,
+	      cct->_conf->osd_op_queue_mclock_osd_subop_lim / n_members),
+    snaptrim(cct->_conf->osd_op_queue_mclock_snap_res / n_members,
+	     cct->_conf->osd_op_queue_mclock_snap_wgt / n_members,
+	     cct->_conf->osd_op_queue_mclock_snap_lim / n_members),
+    recov(cct->_conf->osd_op_queue_mclock_recov_res / n_members,
+	  cct->_conf->osd_op_queue_mclock_recov_wgt / n_members,
+	  cct->_conf->osd_op_queue_mclock_recov_lim / n_members),
+    scrub(cct->_conf->osd_op_queue_mclock_scrub_res / n_members,
+	  cct->_conf->osd_op_queue_mclock_scrub_wgt / n_members,
+	  cct->_conf->osd_op_queue_mclock_scrub_lim / n_members)
   {
     dout(20) <<
       "mClockClientQueue settings:: " <<
@@ -86,17 +86,23 @@ namespace ceph {
 
   std::unique_ptr<mClockClientQueue::mclock_op_tags_t>
   mClockClientQueue::mclock_op_tags(nullptr);
+  CephContext *mClockClientQueue::cct = nullptr;
+  unsigned int mClockClientQueue::num_instances = 0;
 
   mClockClientQueue::pg_queueable_visitor_t
   mClockClientQueue::pg_queueable_visitor;
 
-  mClockClientQueue::mClockClientQueue(CephContext *cct) :
+  mClockClientQueue::mClockClientQueue(CephContext *_cct) :
     queue(&mClockClientQueue::op_class_client_info_f)
   {
-    // manage the singleton
-    if (!mclock_op_tags) {
-      mclock_op_tags.reset(new mclock_op_tags_t(cct));
-    }
+    cct = _cct;
+    num_instances++;
+    mclock_op_tags.reset(new mclock_op_tags_t(cct, num_instances));
+  }
+  
+  mClockClientQueue::~mClockClientQueue() {
+    num_instances--;
+    mclock_op_tags.reset(new mclock_op_tags_t(cct, num_instances));
   }
 
   mClockClientQueue::osd_op_type_t
